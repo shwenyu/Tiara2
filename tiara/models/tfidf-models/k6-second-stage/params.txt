@@ -2,5 +2,5 @@ k:6
 fragment_len:5000
 verbose:True
 smooth:True
-N:92336
-data_names:data/mitochondria,data/plastids
+N:391784
+data_names:/data/shouhanyu/Tiara2/train_ready/train/mitochondria,/data/shouhanyu/Tiara2/train_ready/train/plastids

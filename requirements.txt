@@ -1,7 +1,10 @@
-biopython~=1.78
-joblib~=0.17.0
-numba>=0.52.0rc3
-numpy~=1.19.4
-skorch~=0.9.0
-torch~=1.7.0
-tqdm~=4.54.0
+biopython==1.83
+joblib==1.4.2
+llvmlite==0.41.1
+numba==0.58.1
+numpy==1.26.4
+scikit-learn==1.5.1
+skorch==1.0.0
+torch==2.4.1
+tqdm==4.66.5
+setuptools>=68,<81

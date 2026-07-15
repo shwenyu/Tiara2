@@ -2,5 +2,5 @@ k:6
 fragment_len:5000
 verbose:True
 smooth:True
-N:1023512
-data_names:data/mitochondria,data/plastids,data/bacteria,data/eukarya,data/archea
+N:1147386
+data_names:/data/shouhanyu/Tiara2/train_ready/train/mitochondria,/data/shouhanyu/Tiara2/train_ready/train/plastids,/data/shouhanyu/Tiara2/train_ready/train/bacteria,/data/shouhanyu/Tiara2/train_ready/train/eukarya,/data/shouhanyu/Tiara2/train_ready/train/archaea

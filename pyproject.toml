@@ -1,36 +1,49 @@
-[project]
-name = "tiara"
-version = "1.0.3"
-authors = [
-  { name="Michał Karlicki" }, { name="Stanisław Antonowicz", email="stas.antonowicz@gmail.com" }
-]
-description = "A tool for classifying metagenomic data"
-readme = "README.md"
-requires-python = ">=3.7,<3.10"
-classifiers = [
-    "Programming Language :: Python :: 3.8",
-    "License :: OSI Approved :: MIT License",
-    "Operating System :: OS Independent",
-]
-keywords = ["machine-learning", "computational-biology"]
-dependencies = [
-    "biopython~=1.78",
-    "joblib~=0.17.0",
-    "numba>=0.52.0rc3",
-    "numpy~=1.19.4",
-    "skorch~=0.9.0",
-    "torch~=1.7.0",
-    "tqdm~=4.54.0"
-]
-
-[project.scripts]
-tiara = "tiara.main:main"
-tiara-test = "tiara.test.test:test"
-
-[project.urls]
-"Homepage" = "https://ibe-uw.github.io/tiara/"
-"Bug Tracker" = "https://github.com/ibe-uw/tiara/issues"
+# pyproject.toml —— 放在 ~/tiara-v2/ 根目录（与 tiara/ 包同级）
+# 作用：把 tiara 变成一个“可安装的包”，做一次可编辑安装后，
+#       在任何目录、任何脚本里都能 import tiara / python -m tiara.*，
+#       从此彻底告别 ModuleNotFoundError: No module named 'tiara'。
+#
+# 一次性安装（在已激活的 tiara2 环境里执行）：
+#   conda activate /data/shouhanyu/envs/tiara2
+#   cd ~/tiara-v2
+#   pip install -e .
+#
+# 说明：-e 是 editable（可编辑）安装，源码改动即时生效，无需重装。
+# 若你的仓库已存在可用的 setup.py，则不需要本文件，直接 pip install -e . 即可。
 
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=68,<81", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "tiara"
+version = "2.1.0"
+description = "Tiara — deep-learning classifier for metagenomic contigs (v2 retrain)"
+requires-python = ">=3.10,<3.12"
+dependencies = [
+    "biopython==1.83",
+    "joblib==1.4.2",
+    "llvmlite==0.41.1",
+    "numba==0.58.1",
+    "numpy==1.26.4",
+    "scikit-learn==1.5.1",
+    "skorch==1.0.0",
+    "torch==2.4.1",
+    "tqdm==4.66.5",
+]
+
+# 如果 tiara 有命令行入口（原版是 `tiara` 命令），取消下面注释并改成正确的
+# 模块:函数 路径；不确定就先留注释，不影响 import 与 -m 运行。
+# [project.scripts]
+# tiara = "tiara.main:main"
+
+[tool.setuptools.packages.find]
+include = ["tiara*"]
+
+# 把训练好的模型 / TF-IDF 等非 .py 数据文件一并纳入包内，
+# 保证 pkg_resources.resource_filename(...) 能定位到 models/tfidf-models 等。
+[tool.setuptools.package-data]
+tiara = [
+    "models/**/*",
+    "models/**/*.pkl",
+]

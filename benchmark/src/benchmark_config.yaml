@@ -1,0 +1,70 @@
+# 06_benchmark.py 配置模板
+# 运行：python 06_benchmark.py --config benchmark_config.yaml
+#      python 06_benchmark.py --config benchmark_config.yaml --dry-run   # 只校验
+#      python 06_benchmark.py --config benchmark_config.yaml --device cuda:2
+
+# ---- 全局 ----
+backend: inprocess
+device: cuda:2
+
+threads: 16
+min_len: 3000
+prob_cutoff: [0.65, 0.65]
+
+# 建议先以 10,000 测试，稳定后可提高到 25,000。
+chunk_size: 10000
+
+# 每个 chunk 都输出一次进度；若日志太多可设为 5 或 10。
+log_every_chunks: 1
+
+# Tiara 自带进度条在每个 chunk 都输出会比较杂，建议关闭。
+verbose: true
+
+# 默认不保存 2470 万行逐序列结果，只保存聚合指标。
+save_predictions: false
+
+# 推荐把临时 FASTA 放在空间充足的 /data。
+tmp_dir: /data/shouhanyu/Tiara2/benchmark_tmp
+
+length_buckets: [500, 1000, 2000, 3000, 5000, 10000, 20000]
+results_dir: ~/tiara-v2/benchmark/results
+# ---- 待对比的模型 ----
+# nnet_first / nnet_second：训练产出的 .pkl 权重(train_models_gpu 的输出文件名)
+# tfidf_first / tfidf_second：对应 k 的 TF-IDF 目录
+# k1 / k2：一/二阶段 k-mer(原版默认 6 / 7)
+models:
+  - name: original
+    k1: 6
+    k2: 7
+    nnet_first:  /home/shouhanyu/tiara-v2/tiara/models/nnet-models/first_nnet_kmer_6.pkl
+    nnet_second: /home/shouhanyu/tiara-v2/tiara/models/nnet-models/second_nnet_kmer_7.pkl
+    tfidf_first:  ~/tiara-v2/tiara/models/tfidf-models/k6-first-stage
+    tfidf_second: ~/tiara-v2/tiara/models/tfidf-models/k7-second-stage
+
+  - name: v1.1-fixedHP
+    k1: 6
+    k2: 7
+    # 注意：train_models_gpu 保存的文件名形如 k-6_hidden_1-2048_..._epochs-41.pkl
+    # 用实际生成的文件名替换下面两行(见 models_v1.1_fixedHP_gpu/ 里的 *.pkl)
+    nnet_first:  /data/shouhanyu/Tiara2/models_v1.1_fixedHP_gpu/k-6_hidden_1-2048_hidden_2-1024_lr-0.001_dropout-0.2_epochs-41.pkl
+    nnet_second: /data/shouhanyu/Tiara2/models_v1.1_fixedHP_gpu/k-7_hidden_1-128_hidden_2-64_lr-0.01_dropout-0.2_epochs-47.pkl
+    tfidf_first:  ~/tiara-v2/tiara/models/tfidf-models/k6-first-stage
+    tfidf_second: ~/tiara-v2/tiara/models/tfidf-models/k7-second-stage
+
+# ---- 测试集 ----
+# 每个 file 指定 gold 真值类别；也可省略 gold 而让脚本从 header 的 label=/sg= 解析。
+# gold 词表: archaea / bacteria / eukarya / mitochondrion / plastid
+testsets:
+  - name: holdout
+    files:
+      - {path: /data/shouhanyu/Tiara2/train_ready/test/archaea.fasta,      gold: archaea}
+      - {path: /data/shouhanyu/Tiara2/train_ready/test/bacteria.fasta,     gold: bacteria}
+      - {path: /data/shouhanyu/Tiara2/train_ready/test/eukarya.fasta,      gold: eukarya}
+      - {path: /data/shouhanyu/Tiara2/train_ready/test/mitochondria.fasta, gold: mitochondrion}
+      - {path: /data/shouhanyu/Tiara2/train_ready/test/plastids.fasta,     gold: plastid}
+
+  # 长度扫描集(由 06a_make_length_scan.py 从 test 基因组重切得到)
+  # - name: length_scan
+  #   files:
+  #     - {path: benchmark/datasets/length_scan/archaea_L1000.fasta, gold: archaea, group: archaea}
+  #     - ...

@@ -120,7 +120,7 @@ val_X = val_X / np.linalg.norm(val_X, axis=1).reshape((-1, 1))
 dim_in = 4**k
 dim_out = 3
 
-with open(sys.argv[1], "a") as handle:
+with open(sys.argv[2], "a") as handle:
     handle.write("0: plastids, 1: unknown, 2: mitochondria\n")
 
 for i, architecture in enumerate(architectures):
