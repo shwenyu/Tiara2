@@ -1,0 +1,147 @@
+{
+  "parameter_source": "/data/shouhanyu/Tiara2/log/train_v1.1",
+  "models": [
+    {
+      "stage": "first",
+      "k": 4,
+      "hidden_1": 1024,
+      "hidden_2": 1024,
+      "lr": 0.001,
+      "dropout": 0.2,
+      "epochs": 50,
+      "validation_mean_f1": 0.9936753694802175,
+      "hp_source": "/data/shouhanyu/Tiara2/log/train_v1.1/hp_first_k4.json",
+      "filename": "first_k-4_hidden_1-1024_hidden_2-1024_lr-0.001_dropout-0.2_epochs-50.pkl"
+    },
+    {
+      "stage": "first",
+      "k": 5,
+      "hidden_1": 2048,
+      "hidden_2": null,
+      "lr": 0.001,
+      "dropout": 0.2,
+      "epochs": 50,
+      "validation_mean_f1": 0.9947379246285739,
+      "hp_source": "/data/shouhanyu/Tiara2/log/train_v1.1/hp_first_k5.json",
+      "filename": "first_k-5_hidden_1-2048_hidden_2-none_lr-0.001_dropout-0.2_epochs-50.pkl"
+    },
+    {
+      "stage": "first",
+      "k": 6,
+      "hidden_1": 128,
+      "hidden_2": 64,
+      "lr": 0.001,
+      "dropout": 0.2,
+      "epochs": 50,
+      "validation_mean_f1": 0.9948819767769448,
+      "hp_source": "/data/shouhanyu/Tiara2/log/train_v1.1/hp_first_k6.json",
+      "filename": "first_k-6_hidden_1-128_hidden_2-64_lr-0.001_dropout-0.2_epochs-50.pkl"
+    },
+    {
+      "stage": "second",
+      "k": 4,
+      "hidden_1": 256,
+      "hidden_2": 256,
+      "lr": 0.001,
+      "dropout": 0.5,
+      "epochs": 50,
+      "validation_mean_f1": 0.9902538860408587,
+      "hp_source": "/data/shouhanyu/Tiara2/log/train_v1.1/hp_second_k4.json",
+      "filename": "second_k-4_hidden_1-256_hidden_2-256_lr-0.001_dropout-0.5_epochs-50.pkl"
+    },
+    {
+      "stage": "second",
+      "k": 5,
+      "hidden_1": 256,
+      "hidden_2": 128,
+      "lr": 0.001,
+      "dropout": 0.2,
+      "epochs": 50,
+      "validation_mean_f1": 0.9929002375994507,
+      "hp_source": "/data/shouhanyu/Tiara2/log/train_v1.1/hp_second_k5.json",
+      "filename": "second_k-5_hidden_1-256_hidden_2-128_lr-0.001_dropout-0.2_epochs-50.pkl"
+    },
+    {
+      "stage": "second",
+      "k": 6,
+      "hidden_1": 256,
+      "hidden_2": null,
+      "lr": 0.01,
+      "dropout": 0.2,
+      "epochs": 50,
+      "validation_mean_f1": 0.9935824706768024,
+      "hp_source": "/data/shouhanyu/Tiara2/log/train_v1.1/hp_second_k6.json",
+      "filename": "second_k-6_hidden_1-256_hidden_2-none_lr-0.01_dropout-0.2_epochs-50.pkl"
+    },
+    {
+      "stage": "second",
+      "k": 7,
+      "hidden_1": 256,
+      "hidden_2": 256,
+      "lr": 0.001,
+      "dropout": 0.5,
+      "epochs": 50,
+      "validation_mean_f1": 0.9937253699293321,
+      "hp_source": "/data/shouhanyu/Tiara2/log/train_v1.1/hp_second_k7.json",
+      "filename": "second_k-7_hidden_1-256_hidden_2-256_lr-0.001_dropout-0.5_epochs-50.pkl"
+    }
+  ],
+  "statuses": [
+    {
+      "stage": "second",
+      "k": 4,
+      "gpu": 5,
+      "output": "/data/shouhanyu/Tiara2/models_v2.0_optimizedHP_gpu/second_k-4_hidden_1-256_hidden_2-256_lr-0.001_dropout-0.5_epochs-50.pkl",
+      "minutes": 2.5169457038243612,
+      "status": "trained"
+    },
+    {
+      "stage": "second",
+      "k": 5,
+      "gpu": 5,
+      "output": "/data/shouhanyu/Tiara2/models_v2.0_optimizedHP_gpu/second_k-5_hidden_1-256_hidden_2-128_lr-0.001_dropout-0.2_epochs-50.pkl",
+      "minutes": 3.0095598419507343,
+      "status": "trained"
+    },
+    {
+      "stage": "first",
+      "k": 4,
+      "gpu": 1,
+      "output": "/data/shouhanyu/Tiara2/models_v2.0_optimizedHP_gpu/first_k-4_hidden_1-1024_hidden_2-1024_lr-0.001_dropout-0.2_epochs-50.pkl",
+      "minutes": 8.088917728265127,
+      "status": "trained"
+    },
+    {
+      "stage": "first",
+      "k": 5,
+      "gpu": 3,
+      "output": "/data/shouhanyu/Tiara2/models_v2.0_optimizedHP_gpu/first_k-5_hidden_1-2048_hidden_2-none_lr-0.001_dropout-0.2_epochs-50.pkl",
+      "minutes": 9.635217273235321,
+      "status": "trained"
+    },
+    {
+      "stage": "second",
+      "k": 6,
+      "gpu": 5,
+      "output": "/data/shouhanyu/Tiara2/models_v2.0_optimizedHP_gpu/second_k-6_hidden_1-256_hidden_2-none_lr-0.01_dropout-0.2_epochs-50.pkl",
+      "minutes": 4.176241393884023,
+      "status": "trained"
+    },
+    {
+      "stage": "first",
+      "k": 6,
+      "gpu": 4,
+      "output": "/data/shouhanyu/Tiara2/models_v2.0_optimizedHP_gpu/first_k-6_hidden_1-128_hidden_2-64_lr-0.001_dropout-0.2_epochs-50.pkl",
+      "minutes": 15.767273779710134,
+      "status": "trained"
+    },
+    {
+      "stage": "second",
+      "k": 7,
+      "gpu": 1,
+      "output": "/data/shouhanyu/Tiara2/models_v2.0_optimizedHP_gpu/second_k-7_hidden_1-256_hidden_2-256_lr-0.001_dropout-0.5_epochs-50.pkl",
+      "minutes": 15.186733027299246,
+      "status": "trained"
+    }
+  ]
+}
