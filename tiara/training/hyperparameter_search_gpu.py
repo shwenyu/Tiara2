@@ -28,12 +28,16 @@ Called once per k by 05_train.sh, e.g.:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
+import queue
 import random
 import shutil
+import subprocess
 import tempfile
 import time
+import traceback
 from pathlib import Path
 from typing import Any
 
@@ -64,7 +68,7 @@ from tiara.src.transformations import TfidfWeighter
 # --------------------------------------------------------------------------- #
 STAGE_SPEC = {
     "first": {
-        "files": ["organelle", "bacteria", "archea", "eukarya"],
+        "files": ["organelle", "bacteria", "archaea", "eukarya"],
         "labels": [0, 1, 3, 4],
         "dim_out": 5,
         "idf": "first-stage",
@@ -165,8 +169,8 @@ def read_fasta(path: Path) -> list[str]:
         return [seq for _, seq in SimpleFastaParser(handle)]
 
 
-def load_idf(stage: str, k: int) -> np.ndarray:
-    idf_dir = Path(tiara.__file__).resolve().parent / "models" / "tfidf-models" / f"k{k}-{STAGE_SPEC[stage]['idf']}"
+def load_idf(stage: str, k: int, tfidf_dir: Path) -> np.ndarray:
+    idf_dir = tfidf_dir / f"k{k}-{STAGE_SPEC[stage]['idf']}"
     if not idf_dir.exists():
         raise FileNotFoundError(f"Missing TF-IDF model: {idf_dir}")
     idf = np.asarray(TfidfWeighter.load_params(str(idf_dir)).idfs, dtype=np.float32)
@@ -190,9 +194,24 @@ def featurize(seqs: list[str], k: int, idf: np.ndarray, dim: int) -> np.ndarray:
     return np.ascontiguousarray(X)
 
 
+def read_group(input_dir: Path, split: str, name: str) -> list[str]:
+    split_dir = input_dir / split
+    if name == "organelle":
+        explicit = split_dir / "organelle.fasta"
+        if explicit.is_file():
+            return read_fasta(explicit)
+        return read_fasta(split_dir / "plastids.fasta") + read_fasta(split_dir / "mitochondria.fasta")
+    path = split_dir / f"{name}.fasta"
+    if name == "archaea" and not path.is_file():
+        legacy = split_dir / "archea.fasta"
+        if legacy.is_file():
+            path = legacy
+    return read_fasta(path)
+
+
 def build_split(input_dir: Path, stage: str, split: str, k: int, idf: np.ndarray, dim: int):
     spec = STAGE_SPEC[stage]
-    groups = [read_fasta(input_dir / split / f"{name}.fasta") for name in spec["files"]]
+    groups = [read_group(input_dir, split, name) for name in spec["files"]]
     counts = [len(g) for g in groups]
     flat = [s for g in groups for s in g]
     print(f"[{stage} k={k}] {split}: " + ", ".join(f"{n}={c}" for n, c in zip(spec["files"], counts)), flush=True)
@@ -205,6 +224,32 @@ def build_split(input_dir: Path, stage: str, split: str, k: int, idf: np.ndarray
 # Worker: trains one candidate on one GPU, reading features from memmap.
 # --------------------------------------------------------------------------- #
 def train_one(task: tuple) -> dict[str, Any]:
+    cpu_threads = int(
+        os.environ.get("TIARA_HP_CPU_THREADS", "3")
+    )
+
+    torch.set_num_threads(cpu_threads)
+
+    try:
+        torch.set_num_interop_threads(1)
+    except RuntimeError:
+        pass
+
+    (
+        idx,
+        total,
+        stage,
+        k,
+        arch,
+        gpu_id,
+        scratch,
+        shapes,
+        dim_out,
+        epochs,
+        batch_size,
+        seed,
+    ) = task
+    
     (idx, total, stage, k, arch, gpu_id, scratch, shapes, dim_out, epochs, batch_size, seed) = task
 
     torch.cuda.set_device(gpu_id)
@@ -274,6 +319,61 @@ def train_one(task: tuple) -> dict[str, Any]:
     }
 
 
+def atomic_json(path: Path, payload: dict[str, Any]) -> None:
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    with tmp.open("w") as handle:
+        json.dump(payload, handle, indent=2)
+    os.replace(tmp, path)
+
+
+def search_signature(stage: str, k: int, epochs: int,
+                     architectures: list[dict[str, Any]],
+                     input_dir: Path, tfidf_dir: Path) -> str:
+    payload = {"stage": stage, "k": k, "epochs": epochs,
+               "architectures": architectures,
+               "input_dir": str(input_dir), "tfidf_dir": str(tfidf_dir)}
+    return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()[:24]
+
+
+def query_gpu_metrics(allowed: list[int]) -> list[dict[str, int]]:
+    proc = subprocess.run([
+        "nvidia-smi", "--query-gpu=index,memory.free,utilization.gpu",
+        "--format=csv,noheader,nounits",
+    ], check=True, capture_output=True, text=True)
+    allow = set(allowed)
+    rows = []
+    for line in proc.stdout.splitlines():
+        fields = [part.strip() for part in line.split(",")]
+        if len(fields) != 3:
+            continue
+        gpu, free_mib, util = map(int, fields)
+        if gpu in allow:
+            rows.append({"gpu": gpu, "free_mib": free_mib, "util": util})
+    return rows
+
+
+def dynamic_worker(task_base: tuple, gpu_id: int, result_queue: Any) -> None:
+    idx, total, stage, k, arch, scratch, shapes, dim_out, epochs, batch_size, seed = task_base
+    task = (idx, total, stage, k, arch, gpu_id, scratch, shapes,
+            dim_out, epochs, batch_size, seed)
+    try:
+        result_queue.put({"ok": True, "result": train_one(task)})
+    except BaseException as exc:
+        result_queue.put({"ok": False, "gpu": gpu_id, "error": repr(exc),
+                          "traceback": traceback.format_exc()})
+        raise
+
+
+def deduplicate_architectures(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    result, seen = [], set()
+    for item in items:
+        key = json.dumps(item, sort_keys=True)
+        if key not in seen:
+            seen.add(key)
+            result.append(item)
+    return result
+
+
 def parse_gpu_ids(value: str) -> list[int]:
     ids = [int(x.strip()) for x in value.split(",") if x.strip()]
     if not ids or len(ids) != len(set(ids)):
@@ -287,11 +387,33 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("output_file", type=Path, help="results json (a .txt summary is written next to it)")
     p.add_argument("--stage", required=True, choices=["first", "second"])
     p.add_argument("--k", required=True, type=int)
-    p.add_argument("--gpus", type=parse_gpu_ids, default=parse_gpu_ids("0,1,2,3,4,5,6,7"))
-    p.add_argument("--max-parallel", type=int, default=0, help="concurrent candidates (default: #gpus)")
-    p.add_argument("--batch-size", type=int, default=512, help="per-candidate GPU batch size (default 512)")
-    p.add_argument("--epochs", type=int, default=50, help="training epochs per candidate (default 50)")
-    p.add_argument("--scratch", type=Path, default=None, help="dir for feature memmaps (default: next to output)")
+    p.add_argument("--tfidf-dir", required=True, type=Path,
+                   help="versioned TF-IDF root, e.g. /data/.../tfidf_v2b")
+    p.add_argument("--gpus", type=parse_gpu_ids, default=parse_gpu_ids("0,1,2,3,4,5,6,7"),
+                   help="allowed GPU whitelist")
+    p.add_argument("--max-parallel", type=int, default=6,
+                   help="maximum candidates across all GPUs")
+    p.add_argument("--min-free-mib", type=int, default=18000)
+    p.add_argument("--max-gpu-util", type=int, default=30)
+    p.add_argument("--max-tasks-per-gpu", type=int, default=2,
+                   help="hard limit including shared candidates (default 2)")
+    p.add_argument("--shared-min-free-mib", type=int, default=10000,
+                   help="free VRAM required before adding a second task")
+    p.add_argument("--shared-max-gpu-util", type=int, default=60,
+                   help="utilization ceiling before adding a second task")
+    p.add_argument("--share-launch-delay", type=float, default=30.0,
+                   help="wait after first launch before evaluating that GPU for sharing")
+    p.add_argument("--poll-seconds", type=float, default=15.0)
+    p.add_argument("--batch-size", type=int, default=512)
+    p.add_argument("--epochs", type=int, default=50)
+    p.add_argument("--scratch", type=Path, default=None)
+    p.add_argument("--resume", action=argparse.BooleanOptionalAction, default=True)
+    p.add_argument(
+    "--cpu-threads-per-task",
+    type=int,
+    default=3,
+    help="CPU threads available to each candidate process",
+    )
     return p.parse_args()
 
 
@@ -299,22 +421,68 @@ def main() -> int:
     args = parse_args()
     input_dir = args.input_dir.expanduser().resolve()
     output_file = args.output_file.expanduser().resolve()
+    tfidf_dir = args.tfidf_dir.expanduser().resolve()
     output_file.parent.mkdir(parents=True, exist_ok=True)
     stage, k = args.stage, args.k
     dim = 4 ** k
+    
+    if args.cpu_threads_per_task < 1:
+        raise ValueError("--cpu-threads-per-task must be >= 1")
 
+    os.environ["TIARA_HP_CPU_THREADS"] = str(args.cpu_threads_per_task)
+
+    for variable in (
+    "OMP_NUM_THREADS",
+    "MKL_NUM_THREADS",
+    "OPENBLAS_NUM_THREADS",
+    "NUMEXPR_NUM_THREADS",
+    "VECLIB_MAXIMUM_THREADS",
+    "BLIS_NUM_THREADS",
+    ):
+        os.environ[variable] = str(args.cpu_threads_per_task)
+    
     if not torch.cuda.is_available():
         raise RuntimeError("CUDA is not available in this PyTorch environment")
     device_count = torch.cuda.device_count()
     invalid = [g for g in args.gpus if g < 0 or g >= device_count]
     if invalid:
         raise ValueError(f"Invalid GPU IDs {invalid}; torch sees {device_count} GPUs")
-    max_parallel = args.max_parallel or len(args.gpus)
-    max_parallel = min(max_parallel, len(args.gpus))
+    if args.max_parallel < 1 or args.max_tasks_per_gpu < 1:
+        raise ValueError("--max-parallel and --max-tasks-per-gpu must be >= 1")
+    
+    cpu_count = os.cpu_count() or 128
 
+    # Grid Search 最多使用约 70% CPU；
+    # 其余 CPU 留给已有任务、特征准备和系统。
+    cpu_budget = int(cpu_count * 0.70)
+
+    cpu_parallel_cap = max(
+        1,
+        cpu_budget // args.cpu_threads_per_task,
+    )
+
+    gpu_parallel_cap = (
+        len(args.gpus) * args.max_tasks_per_gpu
+    )
+
+    max_parallel = min(
+        args.max_parallel,
+        cpu_parallel_cap,
+        gpu_parallel_cap,
+    )
+
+    print(
+        "Parallel limits: "
+        f"requested={args.max_parallel}, "
+        f"CPU cap={cpu_parallel_cap}, "
+        f"GPU cap={gpu_parallel_cap}, "
+        f"effective={max_parallel}",
+        flush=True,
+    )
+    
     # ---- features once per k ----
     print(f"== [{stage} k={k}] computing features (dim={dim}) ==", flush=True)
-    idf = load_idf(stage, k)
+    idf = load_idf(stage, k, tfidf_dir)
     train_X, train_y = build_split(input_dir, stage, "train", k, idf, dim)
     val_X, val_y = build_split(input_dir, stage, "validation", k, idf, dim)
 
@@ -330,44 +498,145 @@ def main() -> int:
     shapes = {"train": train_X.shape, "val": val_X.shape}
     del train_X, val_X  # free RAM; workers read via memmap
 
-    architectures = build_architectures(stage)
+    architectures = deduplicate_architectures(build_architectures(stage))
     total = len(architectures)
     spec = STAGE_SPEC[stage]
     print(f"== [{stage} k={k}] {total} candidates over GPUs {args.gpus}, "
           f"{max_parallel} at a time, batch={args.batch_size}, epochs={args.epochs} ==", flush=True)
 
-    tasks = [
-        (i, total, stage, k, arch, args.gpus[i % len(args.gpus)], scratch, shapes,
-         spec["dim_out"], args.epochs, args.batch_size, 20260715 + i)
-        for i, arch in enumerate(architectures)
-    ]
+    signature = search_signature(stage, k, args.epochs, architectures, input_dir, tfidf_dir)
+    partial_file = output_file.with_suffix(output_file.suffix + ".partial.json")
+    results: list[dict[str, Any]] = []
+    if args.resume and partial_file.is_file():
+        saved = json.loads(partial_file.read_text())
+        if saved.get("signature") != signature:
+            raise RuntimeError(f"Partial search signature mismatch: {partial_file}")
+        results = list(saved.get("results", []))
+        print(f"[resume] loaded {len(results)}/{total} candidates", flush=True)
+    completed = {int(row["index"]) for row in results}
+    pending = [(i, total, stage, k, arch, scratch, shapes, spec["dim_out"],
+                args.epochs, args.batch_size, 20260715 + i)
+               for i, arch in enumerate(architectures) if i not in completed]
+    pending.sort(key=lambda t: -(int(t[4]["hid1"]) * int(t[4].get("hid2") or t[4]["hid1"])))
 
     started = time.time()
-    results = []
     ctx = mp.get_context("spawn")
+    result_queue = ctx.Queue()
+    active: dict[int, dict[str, Any]] = {}
+    failure: str | None = None
+    last_wait_log = 0.0
+    print(f"Dynamic scheduler: allowed={args.gpus} max_parallel={max_parallel} "
+          f"exclusive=({args.min_free_mib}MiB,{args.max_gpu_util}%) "
+          f"shared<= {args.max_tasks_per_gpu}/GPU "
+          f"({args.shared_min_free_mib}MiB,{args.shared_max_gpu_util}%)", flush=True)
+
     try:
-        with ctx.Pool(processes=max_parallel, maxtasksperchild=1) as pool:
-            # imap_unordered：哪个候选先跑完就先返回 → 可以实时刷新总进度。
-            for r in pool.imap_unordered(train_one, tasks):
-                results.append(r)
-                done = len(results)
-                elapsed = time.time() - started
-                rate = elapsed / done                     # 已含并行加速的“每候选墙钟”
-                eta = rate * (total - done)
-                best_so_far = max(x["mean_f1"] for x in results)
-                pct = 100.0 * done / total
-                bar_len = 30
-                filled = int(round(bar_len * done / total))
-                bar = "#" * filled + "-" * (bar_len - filled)
-                print(f"[{stage} k={k}] PROGRESS [{bar}] {done}/{total} ({pct:5.1f}%) "
-                      f"| best_f1={best_so_far:.4f} | elapsed {elapsed/60:.1f}m | ETA {eta/60:.1f}m",
-                      flush=True)
+        while pending or active:
+            for pid, record in list(active.items()):
+                proc = record["process"]
+                if not proc.is_alive():
+                    proc.join()
+                    print(f"[scheduler] RELEASE gpu={record['gpu']} pid={pid} exit={proc.exitcode}", flush=True)
+                    if proc.exitcode != 0 and failure is None:
+                        failure = f"candidate failed: pid={pid} gpu={record['gpu']} exit={proc.exitcode}"
+                    del active[pid]
+
+            while True:
+                try:
+                    message = result_queue.get_nowait()
+                except queue.Empty:
+                    break
+                if message.get("ok"):
+                    results.append(message["result"])
+                    atomic_json(partial_file, {"status": "partial", "signature": signature,
+                                               "stage": stage, "k": k, "results": results})
+                    print(f"[{stage} k={k}] PROGRESS {len(results)}/{total} "
+                          f"best_f1={max(x['mean_f1'] for x in results):.4f}", flush=True)
+                elif failure is None:
+                    failure = message.get("traceback") or message.get("error", "worker error")
+            if failure:
+                raise RuntimeError(failure)
+
+            launched = False
+            while pending and len(active) < max_parallel:
+                metrics = query_gpu_metrics(args.gpus)
+                now = time.time()
+                counts = {gpu: 0 for gpu in args.gpus}
+                oldest_launch = {gpu: now for gpu in args.gpus}
+                for record in active.values():
+                    gpu = record["gpu"]
+                    counts[gpu] += 1
+                    oldest_launch[gpu] = min(oldest_launch[gpu], record["launched_at"])
+
+                # Always spread to empty GPUs first.
+                exclusive = [row for row in metrics
+                             if counts[row["gpu"]] == 0
+                             and row["free_mib"] >= args.min_free_mib
+                             and row["util"] <= args.max_gpu_util]
+                exclusive.sort(
+                    key=lambda row: (
+                        row["util"],
+                        -row["free_mib"],
+                        row["gpu"],
+                    )
+                )
+
+                shared = []
+                if not exclusive and args.max_tasks_per_gpu > 1:
+                    shared = [row for row in metrics
+                              if 0 < counts[row["gpu"]] < args.max_tasks_per_gpu
+                              and now - oldest_launch[row["gpu"]] >= args.share_launch_delay
+                              and row["free_mib"] >= args.shared_min_free_mib
+                              and row["util"] <= args.shared_max_gpu_util]
+                    shared.sort(
+                        key=lambda row: (
+                            row["util"],
+                            counts[row["gpu"]],
+                            -row["free_mib"],
+                            row["gpu"],
+                        )
+                    )
+
+                candidates = exclusive or shared
+                if not candidates:
+                    if now - last_wait_log >= 60:
+                        summary = ", ".join(
+                            f"gpu{x['gpu']} tasks={counts[x['gpu']]} free={x['free_mib']}MiB util={x['util']}%"
+                            for x in sorted(metrics, key=lambda x: x["gpu"]))
+                        print(f"[scheduler] WAIT ({summary})", flush=True)
+                        last_wait_log = now
+                    break
+
+                chosen = candidates[0]
+                mode = "exclusive" if exclusive else "shared"
+                task = pending.pop(0)
+                proc = ctx.Process(target=dynamic_worker,
+                                   args=(task, chosen["gpu"], result_queue))
+                proc.start()
+                active[proc.pid] = {"process": proc, "gpu": chosen["gpu"],
+                                    "index": task[0], "launched_at": time.time()}
+                print(f"[scheduler] LAUNCH {mode} candidate={task[0]+1}/{total} "
+                      f"-> gpu={chosen['gpu']} slot={counts[chosen['gpu']]+1}/{args.max_tasks_per_gpu} "
+                      f"free={chosen['free_mib']}MiB util={chosen['util']}% pid={proc.pid}", flush=True)
+                launched = True
+
+            if pending or active:
+                time.sleep(min(2.0, args.poll_seconds) if launched else args.poll_seconds)
     finally:
+        for record in active.values():
+            if record["process"].is_alive():
+                record["process"].terminate()
+        for record in active.values():
+            record["process"].join(timeout=10)
         shutil.rmtree(scratch, ignore_errors=True)
 
     results.sort(key=lambda r: r["mean_f1"], reverse=True)
-    with output_file.open("w") as h:
-        json.dump({"stage": stage, "k": k, "labels": spec["labels"], "results": results}, h, indent=2)
+    if len(results) != total:
+        raise RuntimeError(f"Search incomplete: expected {total}, got {len(results)}")
+    atomic_json(output_file, {"status": "complete", "signature": signature,
+                              "stage": stage, "k": k, "labels": spec["labels"],
+                              "tfidf_dir": str(tfidf_dir), "results": results})
+    partial_file.unlink(missing_ok=True)
 
     txt = output_file.with_suffix(".txt")
     with txt.open("w") as h:

@@ -6,7 +6,8 @@ Examples
 Optimized v2.0 models from completed GPU searches::
 
     python -m tiara.training.train_models_gpu DATA_DIR OUTPUT_DIR 2 \
-        --hp-dir /data/shouhanyu/Tiara2/log/training_v1.1 \
+        --hp-dir /data/shouhanyu/Tiara2/log/train_v2b \
+        --tfidf-dir /data/shouhanyu/Tiara2/tfidf_v2b \
         --gpus 0,1,2,3,4,5,6,7 --max-parallel 4 \
         --min-free-mib 18000 --max-gpu-util 30 --poll-seconds 15 \
         --batch-size 4096 --resume
@@ -23,6 +24,7 @@ from __future__ import annotations
 
 import argparse
 import gc
+import hashlib
 import json
 import multiprocessing as mp
 import os
@@ -143,13 +145,12 @@ def load_stage_sequences(data_dir: Path, stage: str) -> tuple[list[str], np.ndar
     return seqs, np.asarray(labels, dtype=np.int64)
 
 
-def idf_path(stage: str, k: int) -> Path:
-    return (Path(tiara.__file__).resolve().parent / "models" / "tfidf-models"
-            / f"k{k}-{stage}-stage")
+def idf_path(tfidf_dir: Path, stage: str, k: int) -> Path:
+    return tfidf_dir / f"k{k}-{stage}-stage"
 
 
-def make_tfidf(seqs: list[str], stage: str, k: int) -> np.ndarray:
-    path = idf_path(stage, k)
+def make_tfidf(seqs: list[str], stage: str, k: int, tfidf_dir: Path) -> np.ndarray:
+    path = idf_path(tfidf_dir, stage, k)
     if not path.exists():
         raise FileNotFoundError(f"Missing TF-IDF model: {path}")
     idf = np.asarray(TfidfWeighter.load_params(str(path)).idfs, dtype=np.float32)
@@ -275,12 +276,13 @@ def init_worker(gpu_queue: Any, cpu_threads: int) -> None:
     print(f"[worker pid={os.getpid()}] assigned GPU {_WORKER_GPU}", flush=True)
 
 
-def train_one(task: tuple[int, str, dict[str, Any], str, str, int]) -> dict[str, Any]:
-    task_index, stage, arch, data_dir_s, output_dir_s, batch_size = task
+def train_one(task: tuple[int, str, dict[str, Any], str, str, str, int]) -> dict[str, Any]:
+    task_index, stage, arch, data_dir_s, output_dir_s, tfidf_dir_s, batch_size = task
     assert _WORKER_GPU is not None
     gpu_id = _WORKER_GPU
     data_dir = Path(data_dir_s)
     output_dir = Path(output_dir_s)
+    tfidf_dir = Path(tfidf_dir_s)
     output_path = output_dir / model_name(stage, arch)
     tmp_path = output_dir / f".{output_path.name}.pid{os.getpid()}.tmp"
 
@@ -295,7 +297,7 @@ def train_one(task: tuple[int, str, dict[str, Any], str, str, int]) -> dict[str,
     started = time.time()
     try:
         seqs, y = load_stage_sequences(data_dir, stage)
-        X = make_tfidf(seqs, stage, int(arch["k"]))
+        X = make_tfidf(seqs, stage, int(arch["k"]), tfidf_dir)
         del seqs
         dim_out = 5 if stage == "first" else 3
         net = NeuralNetClassifier(
@@ -353,7 +355,7 @@ def query_gpu_metrics(allowed_gpus: list[int]) -> list[dict[str, int]]:
     return metrics
 
 
-def dynamic_worker_entry(task: tuple[int, str, dict[str, Any], str, str, int],
+def dynamic_worker_entry(task: tuple[int, str, dict[str, Any], str, str, str, int],
                          gpu_id: int, cpu_threads: int, result_queue: Any) -> None:
     """Run one model on an explicitly reserved GPU and report the result."""
     global _WORKER_GPU
@@ -382,6 +384,47 @@ def parse_gpu_ids(value: str) -> list[int]:
     return ids
 
 
+def sha256_file(path: Path, chunk_size: int = 1024 * 1024) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        while chunk := handle.read(chunk_size):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def validate_tfidf_dir(tfidf_dir: Path) -> list[dict[str, Any]]:
+    records = []
+    for stage, kmers in (("first", (4, 5, 6)), ("second", (4, 5, 6, 7))):
+        for k in kmers:
+            folder = idf_path(tfidf_dir, stage, k)
+            model, params = folder / "model.npy", folder / "params.txt"
+            if not model.is_file() or not params.is_file():
+                raise FileNotFoundError(f"Missing TF-IDF files in {folder}")
+            idf = np.load(model, mmap_mode="r")
+            if idf.shape != (4 ** k,):
+                raise ValueError(f"Invalid TF-IDF shape in {model}: {idf.shape}")
+            records.append({"stage": stage, "k": k, "folder": str(folder),
+                            "model_sha256": sha256_file(model),
+                            "params_sha256": sha256_file(params)})
+    return records
+
+
+def input_file_metadata(data_dir: Path) -> list[dict[str, Any]]:
+    rows = []
+    for name in FILE_NAMES.values():
+        path = data_dir / name
+        stat = path.stat()
+        rows.append({"path": str(path), "size": stat.st_size, "mtime_ns": stat.st_mtime_ns})
+    return rows
+
+
+def make_run_signature(source: str, jobs: list[tuple[str, dict[str, Any]]],
+                       tfidf_models: list[dict[str, Any]], inputs: list[dict[str, Any]]) -> str:
+    payload = {"source": source, "jobs": [{"stage": s, **a} for s, a in jobs],
+               "tfidf": tfidf_models, "inputs": inputs}
+    return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("data_dir", type=Path, help="flat directory with five *_fr.fasta files")
@@ -389,13 +432,23 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("cpu_threads", type=int, help="CPU threads per GPU worker (recommend 1-2)")
     parser.add_argument("--hp-dir", type=Path, default=None,
                         help="directory containing hp_first_k{4,5,6}.json and hp_second_k{4,5,6,7}.json")
+    parser.add_argument("--tfidf-dir", type=Path, required=True,
+                        help="versioned TF-IDF root")
     parser.add_argument("--epochs", type=int, default=50,
                         help="final epochs for optimized HP models (default: 50)")
     parser.add_argument("--gpus", type=parse_gpu_ids, default=parse_gpu_ids("0,1,2,3,4,5,6,7"),
                         help="allowed GPU whitelist; scheduler chooses among these dynamically")
     parser.add_argument("--batch-size", type=int, default=4096)
-    parser.add_argument("--max-parallel", type=int, default=4,
+    parser.add_argument("--max-parallel", type=int, default=7,
                         help="maximum concurrent model processes")
+    parser.add_argument("--max-tasks-per-gpu", type=int, default=2,
+                        help="maximum NNet processes on one GPU (default: 2)")
+    parser.add_argument("--shared-min-free-mib", type=int, default=10000,
+                        help="free VRAM required before adding another task")
+    parser.add_argument("--shared-max-gpu-util", type=int, default=70,
+                        help="utilization ceiling before adding another task")
+    parser.add_argument("--share-launch-delay", type=float, default=45.0,
+                        help="seconds to wait before sharing a just-used GPU")
     parser.add_argument("--min-free-mib", type=int, default=18000,
                         help="launch only when free VRAM is at least this many MiB (default: 18000 of 24564)")
     parser.add_argument("--max-gpu-util", type=int, default=30,
@@ -408,9 +461,17 @@ def parse_args() -> argparse.Namespace:
 
 
 def write_manifest(path: Path, source: str, jobs: list[tuple[str, dict[str, Any]]],
+                   tfidf_dir: Path, tfidf_models: list[dict[str, Any]],
+                   inputs: list[dict[str, Any]], signature: str,
                    statuses: list[dict[str, Any]] | None = None) -> None:
+    complete = sum(x.get("status") in {"trained", "skipped_existing"} for x in (statuses or []))
     payload = {
+        "status": "complete" if complete == len(jobs) else "in_progress",
+        "run_signature": signature,
         "parameter_source": source,
+        "tfidf_dir": str(tfidf_dir),
+        "tfidf_models": tfidf_models,
+        "input_files": inputs,
         "models": [{"stage": stage, **arch, "filename": model_name(stage, arch)}
                    for stage, arch in jobs],
         "statuses": statuses or [],
@@ -420,12 +481,12 @@ def write_manifest(path: Path, source: str, jobs: list[tuple[str, dict[str, Any]
         json.dump(payload, handle, indent=2)
     os.replace(tmp, path)
 
-
 def main() -> int:
     args = parse_args()
     data_dir = args.data_dir.expanduser().resolve()
     output_dir = args.output_dir.expanduser().resolve()
     hp_dir = args.hp_dir.expanduser().resolve() if args.hp_dir else None
+    tfidf_dir = args.tfidf_dir.expanduser().resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
 
     required = [data_dir / name for name in FILE_NAMES.values()]
@@ -437,30 +498,41 @@ def main() -> int:
     invalid = [gpu for gpu in args.gpus if gpu < 0 or gpu >= torch.cuda.device_count()]
     if invalid:
         raise ValueError(f"Invalid GPU IDs {invalid}; torch sees {torch.cuda.device_count()} GPUs")
-    if args.max_parallel < 1:
-        raise ValueError("--max-parallel must be >= 1")
+    if args.max_parallel < 1 or args.max_tasks_per_gpu < 1:
+        raise ValueError("--max-parallel and --max-tasks-per-gpu must be >= 1")
 
     jobs = build_jobs(hp_dir, args.epochs)
     source = str(hp_dir) if hp_dir else "built-in fixed Tiara parameters"
+    tfidf_models = validate_tfidf_dir(tfidf_dir)
+    inputs = input_file_metadata(data_dir)
+    signature = make_run_signature(source, jobs, tfidf_models, inputs)
     manifest_path = output_dir / "training_manifest.json"
-    write_manifest(manifest_path, source, jobs)
+    existing = [output_dir / model_name(stage, arch) for stage, arch in jobs
+                if (output_dir / model_name(stage, arch)).is_file()]
+    if existing:
+        if not manifest_path.is_file():
+            raise RuntimeError("Existing models have no manifest; refusing unsafe resume")
+        old = json.loads(manifest_path.read_text())
+        if old.get("run_signature") != signature:
+            raise RuntimeError("Existing models use different HP/data/TF-IDF; move output directory first")
+    write_manifest(manifest_path, source, jobs, tfidf_dir, tfidf_models, inputs, signature)
 
     statuses: list[dict[str, Any]] = []
-    pending: list[tuple[int, str, dict[str, Any], str, str, int]] = []
+    pending: list[tuple[int, str, dict[str, Any], str, str, str, int]] = []
     for idx, (stage, arch) in enumerate(jobs):
         target = output_dir / model_name(stage, arch)
         if args.resume and is_complete(target):
             print(f"[resume] SKIP {stage} k={arch['k']}: {target.name}", flush=True)
             statuses.append({"stage": stage, "k": arch["k"], "output": str(target), "status": "skipped_existing"})
         else:
-            pending.append((idx, stage, arch, str(data_dir), str(output_dir), args.batch_size))
+            pending.append((idx, stage, arch, str(data_dir), str(output_dir), str(tfidf_dir), args.batch_size))
 
     if not pending:
         print("[resume] All seven optimized models are already complete.")
-        write_manifest(manifest_path, source, jobs, statuses)
+        write_manifest(manifest_path, source, jobs, tfidf_dir, tfidf_models, inputs, signature, statuses)
         return 0
 
-    max_parallel = min(args.max_parallel, len(args.gpus), len(pending))
+    max_parallel = min(args.max_parallel, len(args.gpus) * args.max_tasks_per_gpu, len(pending))
     print(f"Parameter source: {source}")
     for stage, arch in jobs:
         print(f"  {stage:6s} k={arch['k']} hid1={arch['hidden_1']} hid2={arch.get('hidden_2')} "
@@ -502,7 +574,7 @@ def main() -> int:
                     break
                 if message.get("ok"):
                     statuses.append(message["result"])
-                    write_manifest(manifest_path, source, jobs, statuses)
+                    write_manifest(manifest_path, source, jobs, tfidf_dir, tfidf_models, inputs, signature, statuses)
                 elif failure is None:
                     failure = message.get("traceback") or message.get("error", "unknown worker error")
 
@@ -520,27 +592,41 @@ def main() -> int:
                         last_wait_log = now
                     break
 
-                reserved = {record["gpu"] for record in active.values()}
-                eligible = [
-                    row for row in metrics
-                    if row["gpu"] not in reserved
-                    and row["free_mib"] >= args.min_free_mib
-                    and row["util"] <= args.max_gpu_util
-                ]
-                eligible.sort(key=lambda row: (-row["free_mib"], row["util"], row["gpu"]))
+                now = time.time()
+                counts = {gpu: 0 for gpu in args.gpus}
+                oldest = {gpu: now for gpu in args.gpus}
+                for record in active.values():
+                    gpu = record["gpu"]
+                    counts[gpu] += 1
+                    oldest[gpu] = min(oldest[gpu], record["launched_at"])
+
+                exclusive = [row for row in metrics
+                             if counts[row["gpu"]] == 0
+                             and row["free_mib"] >= args.min_free_mib
+                             and row["util"] <= args.max_gpu_util]
+                exclusive.sort(key=lambda row: (row["util"], -row["free_mib"], row["gpu"]))
+
+                shared = []
+                if not exclusive and args.max_tasks_per_gpu > 1:
+                    shared = [row for row in metrics
+                              if 0 < counts[row["gpu"]] < args.max_tasks_per_gpu
+                              and now - oldest[row["gpu"]] >= args.share_launch_delay
+                              and row["free_mib"] >= args.shared_min_free_mib
+                              and row["util"] <= args.shared_max_gpu_util]
+                    shared.sort(key=lambda row: (row["util"], counts[row["gpu"]],
+                                                 -row["free_mib"], row["gpu"]))
+                eligible = exclusive or shared
                 if not eligible:
-                    now = time.time()
                     if now - last_wait_log >= 60:
-                        ranked = sorted(metrics, key=lambda row: (-row["free_mib"], row["util"]))
+                        ranked = sorted(metrics, key=lambda row: (row["util"], -row["free_mib"]))
                         summary = ", ".join(
-                            f"gpu{x['gpu']} free={x['free_mib']}MiB util={x['util']}%"
-                            for x in ranked
-                        )
+                            f"gpu{x['gpu']} tasks={counts[x['gpu']]} free={x['free_mib']}MiB util={x['util']}%"
+                            for x in ranked)
                         print(f"[scheduler] WAIT: no eligible GPU ({summary})", flush=True)
                         last_wait_log = now
                     break
-
                 chosen = eligible[0]
+                launch_mode = "exclusive" if exclusive else "shared"
                 task = pending.pop(0)
                 _, stage, arch, *_ = task
                 proc = ctx.Process(
@@ -553,8 +639,10 @@ def main() -> int:
                     "gpu": chosen["gpu"],
                     "stage": stage,
                     "k": arch["k"],
+                    "launched_at": time.time(),
                 }
-                print(f"[scheduler] LAUNCH {stage} k={arch['k']} -> GPU {chosen['gpu']} "
+                print(f"[scheduler] LAUNCH {launch_mode} {stage} k={arch['k']} -> GPU {chosen['gpu']} "
+                      f"slot={counts[chosen['gpu']]+1}/{args.max_tasks_per_gpu} "
                       f"(free={chosen['free_mib']}MiB util={chosen['util']}%) pid={proc.pid}",
                       flush=True)
                 launched = True
@@ -575,7 +663,7 @@ def main() -> int:
                   if not is_complete(output_dir / model_name(stage, arch))]
     if incomplete:
         raise RuntimeError("Training ended but models are missing:\n" + "\n".join(map(str, incomplete)))
-    write_manifest(manifest_path, source, jobs, statuses)
+    write_manifest(manifest_path, source, jobs, tfidf_dir, tfidf_models, inputs, signature, statuses)
     print(f"All seven models complete -> {output_dir}")
     return 0
 

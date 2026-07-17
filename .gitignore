@@ -14,7 +14,7 @@ logs/
 models/v1.1/
 checkpoints/
 weights/
-*.pkl
+
 *.joblib
 *.pt
 *.pth
