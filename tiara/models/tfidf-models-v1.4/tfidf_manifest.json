@@ -1,0 +1,27 @@
+{
+  "status": "complete",
+  "signature": "4df92d056084c4a03713a9e4",
+  "config": {
+    "data_dir": "/data/shouhanyu/Tiara2/train_ready_v2c/train",
+    "workers": 16,
+    "batch_size": 1000,
+    "fragment_len": 5000,
+    "split_long_records": false,
+    "first_k": [
+      4,
+      5,
+      6
+    ],
+    "second_k": [
+      4,
+      5,
+      6,
+      7
+    ]
+  },
+  "first_documents": 900694,
+  "second_documents": 79677,
+  "seconds": 10.571734189987183,
+  "implementation": "CPU multiprocessing + numba document frequency",
+  "gpu_used": false
+}

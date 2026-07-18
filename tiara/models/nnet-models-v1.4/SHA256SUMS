@@ -1,0 +1,7 @@
+3a2d7cadc83cc44a0c78f7fa0a7a6dd3e80c20fd2e7c3b3f96e541eabfddbb87  ./first_k-4_hidden_1-2048_hidden_2-1024_lr-0.001_dropout-0.2_epochs-50.pkl
+f5f497864e7aa667c87b55147ce1ecc08e06ac138330b4ceee99e3484dd949ed  ./first_k-5_hidden_1-2048_hidden_2-2048_lr-0.0001_dropout-0.2_epochs-50.pkl
+c931111e1f275aec5fa52270a76cf534143aae0f7e3c1f93e92518304afada61  ./first_k-6_hidden_1-1024_hidden_2-1024_lr-0.001_dropout-0.2_epochs-50.pkl
+7d9b81a6f765272edd33a65893028574b987ccf065e7c60d23c03aba763d9434  ./second_k-4_hidden_1-256_hidden_2-256_lr-0.001_dropout-0.2_epochs-50.pkl
+cd7c5a3aba71f60d9ad87e9be087b1e3fe080a214bee6b8c6dbc725fad3e8445  ./second_k-5_hidden_1-256_hidden_2-128_lr-0.001_dropout-0.5_epochs-50.pkl
+b8849896a01cf65e8d45d49ba939f50a3bde138e18f4d65e3475fb71dffd61e2  ./second_k-6_hidden_1-256_hidden_2-none_lr-0.01_dropout-0.2_epochs-50.pkl
+ae67adc11ee8ece3e6838dd73303e9a1207037e509cec7d5daf2dca730cd3f7f  ./second_k-7_hidden_1-256_hidden_2-256_lr-0.01_dropout-0.5_epochs-50.pkl

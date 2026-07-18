@@ -1,0 +1,15 @@
+25e9acf23e0411cea4f9fce428793ba5e8c47fe2a18dc5f51bd5b03cd4443d8e  ./k4-first-stage/model.npy
+0a1bc3e64e06d8db12489d635ed6bfd18bcce14620598eac948e28a0c063ed76  ./k4-first-stage/params.txt
+82de47024e399299a08ffc01314b8c647a0e371a6c39d48e219d792b16de850c  ./k4-second-stage/model.npy
+0ddb10444bad02e8517e29ed7090b3723ab64aab432928bfdf447892c0bac04c  ./k4-second-stage/params.txt
+08ad39af9f767c778db83b38c5848969cd6efc1ebd4f645ed2c6c18faa0d39b3  ./k5-first-stage/model.npy
+620704d315427f5f855e6c0a263760646145b3a64f1c9ab010ca5170c77dbedd  ./k5-first-stage/params.txt
+ecedeaeedc7a3f53a982fe8f920ca63e671346210f84ff9d70546f7527d445ed  ./k5-second-stage/model.npy
+c20b2830312f05b3a2b11f6bb0428aa67199af24175b6d1ff81653f2896f79e0  ./k5-second-stage/params.txt
+53ca4f204dcb60bdbcbb9030ed2ca02845e011213c1985b85153bcef6b31ea3b  ./k6-first-stage/model.npy
+4918deac492b4879379743c3373a9c8e809358d58d16438816e4996eab0f9aec  ./k6-first-stage/params.txt
+6d05917161a9bcb14271bd1a35013734a8c45a98aaeebaace35158534435848e  ./k6-second-stage/model.npy
+b4cd0d7e6b60aecb5675da231115965e705538ea0cf13fc0a3023c11d8cb4bff  ./k6-second-stage/params.txt
+27d2c4ccac4574b660061cd3ad13d55ebfdf0a2d8f955f377ad1b1bcad8f051d  ./k7-second-stage/model.npy
+b3077c948e67470a9ce89b5b0eb8db3ae1e1ed9c8bfa115ff940bbabc053d2a1  ./k7-second-stage/params.txt
+b281c09a510696968dd6cb4168d5c9376351fbe6f6fce80a3f3a0ff286fcd4ea  ./tfidf_manifest.json

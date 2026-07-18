@@ -1,0 +1,228 @@
+{
+  "status": "complete",
+  "run_signature": "3a52f8cf3651a84b9ef928582160168e18d4e7f0d9c0b4a5d0105093870b511c",
+  "parameter_source": "/data/shouhanyu/Tiara2/log/train_v2c",
+  "tfidf_dir": "/data/shouhanyu/Tiara2/tfidf_v2c",
+  "tfidf_models": [
+    {
+      "stage": "first",
+      "k": 4,
+      "folder": "/data/shouhanyu/Tiara2/tfidf_v2c/k4-first-stage",
+      "model_sha256": "25e9acf23e0411cea4f9fce428793ba5e8c47fe2a18dc5f51bd5b03cd4443d8e",
+      "params_sha256": "0a1bc3e64e06d8db12489d635ed6bfd18bcce14620598eac948e28a0c063ed76"
+    },
+    {
+      "stage": "first",
+      "k": 5,
+      "folder": "/data/shouhanyu/Tiara2/tfidf_v2c/k5-first-stage",
+      "model_sha256": "08ad39af9f767c778db83b38c5848969cd6efc1ebd4f645ed2c6c18faa0d39b3",
+      "params_sha256": "620704d315427f5f855e6c0a263760646145b3a64f1c9ab010ca5170c77dbedd"
+    },
+    {
+      "stage": "first",
+      "k": 6,
+      "folder": "/data/shouhanyu/Tiara2/tfidf_v2c/k6-first-stage",
+      "model_sha256": "53ca4f204dcb60bdbcbb9030ed2ca02845e011213c1985b85153bcef6b31ea3b",
+      "params_sha256": "4918deac492b4879379743c3373a9c8e809358d58d16438816e4996eab0f9aec"
+    },
+    {
+      "stage": "second",
+      "k": 4,
+      "folder": "/data/shouhanyu/Tiara2/tfidf_v2c/k4-second-stage",
+      "model_sha256": "82de47024e399299a08ffc01314b8c647a0e371a6c39d48e219d792b16de850c",
+      "params_sha256": "0ddb10444bad02e8517e29ed7090b3723ab64aab432928bfdf447892c0bac04c"
+    },
+    {
+      "stage": "second",
+      "k": 5,
+      "folder": "/data/shouhanyu/Tiara2/tfidf_v2c/k5-second-stage",
+      "model_sha256": "ecedeaeedc7a3f53a982fe8f920ca63e671346210f84ff9d70546f7527d445ed",
+      "params_sha256": "c20b2830312f05b3a2b11f6bb0428aa67199af24175b6d1ff81653f2896f79e0"
+    },
+    {
+      "stage": "second",
+      "k": 6,
+      "folder": "/data/shouhanyu/Tiara2/tfidf_v2c/k6-second-stage",
+      "model_sha256": "6d05917161a9bcb14271bd1a35013734a8c45a98aaeebaace35158534435848e",
+      "params_sha256": "b4cd0d7e6b60aecb5675da231115965e705538ea0cf13fc0a3023c11d8cb4bff"
+    },
+    {
+      "stage": "second",
+      "k": 7,
+      "folder": "/data/shouhanyu/Tiara2/tfidf_v2c/k7-second-stage",
+      "model_sha256": "27d2c4ccac4574b660061cd3ad13d55ebfdf0a2d8f955f377ad1b1bcad8f051d",
+      "params_sha256": "b3077c948e67470a9ce89b5b0eb8db3ae1e1ed9c8bfa115ff940bbabc053d2a1"
+    }
+  ],
+  "input_files": [
+    {
+      "path": "/data/shouhanyu/Tiara2/train_ready_flat_v2c/mitochondria_fr.fasta",
+      "size": 113091631,
+      "mtime_ns": 1784290683797222286
+    },
+    {
+      "path": "/data/shouhanyu/Tiara2/train_ready_flat_v2c/plast_fr.fasta",
+      "size": 251851199,
+      "mtime_ns": 1784290683448222307
+    },
+    {
+      "path": "/data/shouhanyu/Tiara2/train_ready_flat_v2c/bacteria_fr.fasta",
+      "size": 1777877230,
+      "mtime_ns": 1784290687331222076
+    },
+    {
+      "path": "/data/shouhanyu/Tiara2/train_ready_flat_v2c/eukarya_fr.fasta",
+      "size": 1247989936,
+      "mtime_ns": 1784290682524222362
+    },
+    {
+      "path": "/data/shouhanyu/Tiara2/train_ready_flat_v2c/archaea_fr.fasta",
+      "size": 660029559,
+      "mtime_ns": 1784290684974222216
+    }
+  ],
+  "models": [
+    {
+      "stage": "first",
+      "k": 4,
+      "hidden_1": 2048,
+      "hidden_2": 1024,
+      "lr": 0.001,
+      "dropout": 0.2,
+      "epochs": 50,
+      "validation_mean_f1": 0.9757390396706729,
+      "hp_source": "/data/shouhanyu/Tiara2/log/train_v2c/hp_first_k4.json",
+      "filename": "first_k-4_hidden_1-2048_hidden_2-1024_lr-0.001_dropout-0.2_epochs-50.pkl"
+    },
+    {
+      "stage": "first",
+      "k": 5,
+      "hidden_1": 2048,
+      "hidden_2": 2048,
+      "lr": 0.0001,
+      "dropout": 0.2,
+      "epochs": 50,
+      "validation_mean_f1": 0.9784440124617915,
+      "hp_source": "/data/shouhanyu/Tiara2/log/train_v2c/hp_first_k5.json",
+      "filename": "first_k-5_hidden_1-2048_hidden_2-2048_lr-0.0001_dropout-0.2_epochs-50.pkl"
+    },
+    {
+      "stage": "first",
+      "k": 6,
+      "hidden_1": 1024,
+      "hidden_2": 1024,
+      "lr": 0.001,
+      "dropout": 0.2,
+      "epochs": 50,
+      "validation_mean_f1": 0.9797953809060014,
+      "hp_source": "/data/shouhanyu/Tiara2/log/train_v2c/hp_first_k6.json",
+      "filename": "first_k-6_hidden_1-1024_hidden_2-1024_lr-0.001_dropout-0.2_epochs-50.pkl"
+    },
+    {
+      "stage": "second",
+      "k": 4,
+      "hidden_1": 256,
+      "hidden_2": 256,
+      "lr": 0.001,
+      "dropout": 0.2,
+      "epochs": 50,
+      "validation_mean_f1": 0.9893441444105678,
+      "hp_source": "/data/shouhanyu/Tiara2/log/train_v2c/hp_second_k4.json",
+      "filename": "second_k-4_hidden_1-256_hidden_2-256_lr-0.001_dropout-0.2_epochs-50.pkl"
+    },
+    {
+      "stage": "second",
+      "k": 5,
+      "hidden_1": 256,
+      "hidden_2": 128,
+      "lr": 0.001,
+      "dropout": 0.5,
+      "epochs": 50,
+      "validation_mean_f1": 0.990424752490398,
+      "hp_source": "/data/shouhanyu/Tiara2/log/train_v2c/hp_second_k5.json",
+      "filename": "second_k-5_hidden_1-256_hidden_2-128_lr-0.001_dropout-0.5_epochs-50.pkl"
+    },
+    {
+      "stage": "second",
+      "k": 6,
+      "hidden_1": 256,
+      "hidden_2": null,
+      "lr": 0.01,
+      "dropout": 0.2,
+      "epochs": 50,
+      "validation_mean_f1": 0.9900111171481071,
+      "hp_source": "/data/shouhanyu/Tiara2/log/train_v2c/hp_second_k6.json",
+      "filename": "second_k-6_hidden_1-256_hidden_2-none_lr-0.01_dropout-0.2_epochs-50.pkl"
+    },
+    {
+      "stage": "second",
+      "k": 7,
+      "hidden_1": 256,
+      "hidden_2": 256,
+      "lr": 0.01,
+      "dropout": 0.5,
+      "epochs": 50,
+      "validation_mean_f1": 0.9914702799467665,
+      "hp_source": "/data/shouhanyu/Tiara2/log/train_v2c/hp_second_k7.json",
+      "filename": "second_k-7_hidden_1-256_hidden_2-256_lr-0.01_dropout-0.5_epochs-50.pkl"
+    }
+  ],
+  "statuses": [
+    {
+      "stage": "second",
+      "k": 4,
+      "gpu": 7,
+      "output": "/data/shouhanyu/Tiara2/models_v1.4_optimizedHP_gpu/second_k-4_hidden_1-256_hidden_2-256_lr-0.001_dropout-0.2_epochs-50.pkl",
+      "minutes": 0.4289851466814677,
+      "status": "trained"
+    },
+    {
+      "stage": "second",
+      "k": 5,
+      "gpu": 7,
+      "output": "/data/shouhanyu/Tiara2/models_v1.4_optimizedHP_gpu/second_k-5_hidden_1-256_hidden_2-128_lr-0.001_dropout-0.5_epochs-50.pkl",
+      "minutes": 0.5246567328770956,
+      "status": "trained"
+    },
+    {
+      "stage": "second",
+      "k": 6,
+      "gpu": 4,
+      "output": "/data/shouhanyu/Tiara2/models_v1.4_optimizedHP_gpu/second_k-6_hidden_1-256_hidden_2-none_lr-0.01_dropout-0.2_epochs-50.pkl",
+      "minutes": 1.066908840338389,
+      "status": "trained"
+    },
+    {
+      "stage": "second",
+      "k": 7,
+      "gpu": 5,
+      "output": "/data/shouhanyu/Tiara2/models_v1.4_optimizedHP_gpu/second_k-7_hidden_1-256_hidden_2-256_lr-0.01_dropout-0.5_epochs-50.pkl",
+      "minutes": 3.4494730114936827,
+      "status": "trained"
+    },
+    {
+      "stage": "first",
+      "k": 4,
+      "gpu": 4,
+      "output": "/data/shouhanyu/Tiara2/models_v1.4_optimizedHP_gpu/first_k-4_hidden_1-2048_hidden_2-1024_lr-0.001_dropout-0.2_epochs-50.pkl",
+      "minutes": 5.7774363398551944,
+      "status": "trained"
+    },
+    {
+      "stage": "first",
+      "k": 5,
+      "gpu": 5,
+      "output": "/data/shouhanyu/Tiara2/models_v1.4_optimizedHP_gpu/first_k-5_hidden_1-2048_hidden_2-2048_lr-0.0001_dropout-0.2_epochs-50.pkl",
+      "minutes": 7.490607023239136,
+      "status": "trained"
+    },
+    {
+      "stage": "first",
+      "k": 6,
+      "gpu": 6,
+      "output": "/data/shouhanyu/Tiara2/models_v1.4_optimizedHP_gpu/first_k-6_hidden_1-1024_hidden_2-1024_lr-0.001_dropout-0.2_epochs-50.pkl",
+      "minutes": 12.207318830490113,
+      "status": "trained"
+    }
+  ]
+}
