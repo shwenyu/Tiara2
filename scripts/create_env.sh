@@ -5,6 +5,13 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 env_name="${1:-tiara2}"
 
+if ! git lfs version >/dev/null 2>&1; then
+  echo "Git LFS is required. Install it, then rerun this script." >&2
+  exit 1
+fi
+git lfs install --local
+git lfs pull
+
 conda create --yes --override-channels \
   --name "$env_name" \
   --channel pytorch \

@@ -7,15 +7,15 @@ Tiara2 classifies assembled DNA contigs into eukaryotic, prokaryotic and organel
 Git LFS is required because the frozen model is distributed with this repository.
 
 ```bash
+git lfs install
 git clone https://github.com/shwenyu/Tiara2.git
 cd Tiara2
-git lfs pull
 bash scripts/create_env.sh
 conda activate tiara2
 tiara2-classify --verify
 ```
 
-`create_env.sh` uses the same pinned dependencies as `environment.yml` and forces only the declared channels, so a stale user-level mirror cannot change or break the installation. On a standard Conda setup, `conda env create -f environment.yml` is equivalent.
+`create_env.sh` initializes the clone's LFS checkout, downloads the frozen model, and then uses the same pinned dependencies as `environment.yml`. It forces only the declared Conda channels, so a stale user-level mirror cannot change or break the installation. On a standard Conda setup, `conda env create -f environment.yml` is equivalent after `git lfs pull`.
 
 ## Classify contigs
 
