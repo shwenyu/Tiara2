@@ -1,0 +1,18 @@
+name: tiara2
+channels:
+  - pytorch
+  - conda-forge
+  - nodefaults
+dependencies:
+  - python=3.10
+  - pip
+  - setuptools<81
+  - numpy=1.26.4
+  - pytorch=2.4.1
+  - scikit-learn=1.5.1
+  - joblib=1.4.2
+  - numba=0.58.1
+  - llvmlite=0.41.1
+  - "scipy>=1.15,<1.16"
+  - pip:
+      - -e .

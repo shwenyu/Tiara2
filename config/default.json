@@ -1,0 +1,15 @@
+{
+  "model_bundle": null,
+  "runtime": {"batch": 512, "device": null, "min_length": 1000, "max_records": null},
+  "router": {
+    "tau": 0.55,
+    "alpha": 5.0,
+    "delta_max": 2.0,
+    "base_euk_min": 0.0,
+    "middle_weight": 0.25,
+    "long_weight": 0.05,
+    "length_bins_bp": [2500, 5000],
+    "demotion_allowed": false
+  },
+  "thresholds": {}
+}

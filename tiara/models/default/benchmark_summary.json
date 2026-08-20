@@ -1,0 +1,29 @@
+{
+  "model": "Tiara2",
+  "internal": {
+    "strict_test_panel_cap20": {
+      "rows": 451497,
+      "promoted": 600,
+      "delta_vs_base": {"root_macro_f1": 0.0007292914825446362, "euk_recall": 0.005765191773677403, "fungi_recall": 0.001980198019801982}
+    },
+    "sens_like_unseen_panel_cap20": {
+      "rows": 43256,
+      "promoted": 76,
+      "delta_vs_base": {"root_macro_f1": 0.0010248936725960611, "euk_recall": 0.005753526354862704, "fungi_recall": 0.0017647058823530015}
+    }
+  },
+  "external_calibrated": {
+    "protocol": "1% prevalence with independently selected thresholds by length",
+    "aggregates": [
+      {"length_bp": "1000-10000", "task": "Fungi", "panel": "main", "base_percent": 90.57, "tiara2_percent": 90.66, "delta_pp": 0.09},
+      {"length_bp": "1000-10000", "task": "Fungi", "panel": "sens", "base_percent": 90.97, "tiara2_percent": 91.17, "delta_pp": 0.20},
+      {"length_bp": "1000-10000", "task": "Euk", "panel": "main", "base_percent": 89.89, "tiara2_percent": 90.13, "delta_pp": 0.24},
+      {"length_bp": "1000-10000", "task": "Euk", "panel": "sens", "base_percent": 89.57, "tiara2_percent": 89.80, "delta_pp": 0.23},
+      {"length_bp": "1000-2500", "task": "Fungi", "panel": "main", "base_percent": 75.66, "tiara2_percent": 76.06, "delta_pp": 0.40},
+      {"length_bp": "1000-2500", "task": "Fungi", "panel": "sens", "base_percent": 77.69, "tiara2_percent": 78.47, "delta_pp": 0.78},
+      {"length_bp": "1000-2500", "task": "Euk", "panel": "main", "base_percent": 73.56, "tiara2_percent": 74.39, "delta_pp": 0.83},
+      {"length_bp": "1000-2500", "task": "Euk", "panel": "sens", "base_percent": 75.41, "tiara2_percent": 76.09, "delta_pp": 0.68}
+    ],
+    "note": "These aggregates are threshold-calibrated. The package emits probabilities so new cohorts can be calibrated independently."
+  }
+}

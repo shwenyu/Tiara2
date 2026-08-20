@@ -1,0 +1,45 @@
+{
+  "format": "tiara2-biosignal-residual-v1",
+  "name": "Tiara2",
+  "status": "stable",
+  "base": {"checkpoint": "multiobjective_model.pt", "sha256": "1b227cb5acd192fda07febcdd4a6eafa8cd6894eb695a0ca5ca34de45e98a887"},
+  "expert": {
+    "model": "biosignal_expert.joblib",
+    "sha256": "5d8c163f12d00b89004610df780fe14e8ce40f0bddc608197a6c3cffb140c372",
+    "estimator": "ExtraTreesClassifier",
+    "trees": 500,
+    "feature_dimension": 60,
+    "seed": 42
+  },
+  "router": {
+    "type": "length_conditioned_euk_only_soft_residual",
+    "tau": 0.55,
+    "alpha": 5.0,
+    "delta_max": 2.0,
+    "base_euk_min": 0.0,
+    "middle_weight": 0.25,
+    "long_weight": 0.05,
+    "length_bins_bp": [2500, 5000],
+    "demotion_allowed": false
+  },
+  "tfidf": "tfidf",
+  "tfidf_sha256": {
+    "model.npy": "2beeb73b339dab892cf68e43afb55194a7a7a4ede5fca6594139af396efa4715",
+    "params.txt": "7d09059ccbfafbc87364e82216c23c79e960a12c83b1028b795329dd3606ce76"
+  },
+  "thresholds": {},
+  "temperatures": null,
+  "benchmark_summary": "benchmark_summary.json",
+  "gates": {
+    "clean_development_passed": true,
+    "strict_internal_nonregression": true,
+    "sens_like_unseen_nonregression": true,
+    "three_seed_direction_consistent": true,
+    "calibrated_external_aggregates_passed": true
+  },
+  "provenance": {
+    "source_repository": "tiara2-pipeline",
+    "source_commit": "aded5f5aa51ea10ee3aa181cf1ec552dd133e19b",
+    "release_name": "Tiara2"
+  }
+}

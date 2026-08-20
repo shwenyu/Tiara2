@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68,<81", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tiara2"
+version = "1.0.0"
+description = "Reusable DNA contig classification with automatic BioSignal routing"
+readme = "README.md"
+requires-python = ">=3.10,<3.11"
+license = {text = "MIT"}
+authors = [{name = "Tiara2 contributors"}]
+dependencies = [
+  "numpy==1.26.4",
+  "torch==2.4.1",
+  "scikit-learn==1.5.1",
+  "joblib==1.4.2",
+  "numba==0.58.1",
+  "llvmlite==0.41.1",
+  "scipy>=1.15,<1.16",
+]
+
+[project.scripts]
+tiara2-classify = "tiara.cli:main"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["tiara*"]
+
+[tool.setuptools.package-data]
+tiara = ["models/default/*.json", "models/default/*.pt", "models/default/*.joblib", "models/default/tfidf/*.npy", "models/default/tfidf/*.txt"]
