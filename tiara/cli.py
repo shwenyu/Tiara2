@@ -5,7 +5,7 @@ import argparse
 import json
 
 from tiara.api import classify
-from tiara.bundle import verify_bundle
+from tiara.bundle import download_bundle, verify_bundle
 from tiara.config import load_config
 
 
@@ -29,6 +29,21 @@ def parser():
     command.add_argument("--verify", action="store_true", help="verify model hashes and exit")
     command.add_argument("--show-config", action="store_true", help="print the resolved configuration and exit")
     return command
+
+
+def download_parser():
+    command = argparse.ArgumentParser(
+        prog="tiara2-download-models",
+        description="Download and verify the frozen Tiara2 model bundle.",
+    )
+    command.add_argument("--model-dir", help="destination directory; defaults to the Tiara2 user cache")
+    command.add_argument("--force", action="store_true", help="redownload files that already pass verification")
+    return command
+
+
+def download_main(argv=None):
+    args = download_parser().parse_args(argv)
+    print(json.dumps(download_bundle(args.model_dir, force=args.force), indent=2, sort_keys=True))
 
 
 def main(argv=None):

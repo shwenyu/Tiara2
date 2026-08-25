@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tiara2"
-version = "1.0.1"
+version = "1.0.2"
 description = "Reusable DNA contig classification with automatic BioSignal routing"
 readme = "README.md"
 requires-python = ">=3.10,<3.11"
@@ -22,6 +22,7 @@ dependencies = [
 
 [project.scripts]
 tiara2-classify = "tiara.cli:main"
+tiara2-download-models = "tiara.cli:download_main"
 
 [tool.setuptools]
 include-package-data = true
@@ -30,4 +31,4 @@ include-package-data = true
 include = ["tiara*"]
 
 [tool.setuptools.package-data]
-tiara = ["models/default/*.json", "models/default/*.pt", "models/default/*.joblib", "models/default/tfidf/*.npy", "models/default/tfidf/*.txt"]
+tiara = ["models/default/*.json", "models/default/tfidf/*.txt"]

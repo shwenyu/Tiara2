@@ -4,7 +4,22 @@ Tiara2 builds on the original Tiara tool and retains its efficient k-mer/TF-IDF 
 
 ## Install
 
-Git LFS is required because the frozen model is distributed with this repository.
+Install the lightweight runtime from conda-forge, then fetch the frozen model once:
+
+```bash
+conda create -n tiara2 -c conda-forge tiara2
+conda activate tiara2
+tiara2-download-models
+tiara2-classify --verify
+```
+
+The model download is approximately 1.2 GB. It is version-pinned, SHA-256 and
+size verified, idempotent when rerun, and stored outside the Conda package in
+the user cache. Set `TIARA2_MODEL_HOME` or pass `--model-dir` to select another
+location. Tiara2 never downloads model files merely because an environment was
+activated.
+
+For a source installation, Git LFS is required:
 
 ```bash
 git lfs install
@@ -15,7 +30,11 @@ conda activate tiara2
 tiara2-classify --verify
 ```
 
-`create_env.sh` initializes the clone's LFS checkout, downloads the frozen model, and then uses the same pinned dependencies as `environment.yml`. It forces only the declared Conda channels, so a stale user-level mirror cannot change or break the installation. On a standard Conda setup, `conda env create -f environment.yml` is equivalent after `git lfs pull`.
+`create_env.sh` initializes the clone's LFS checkout, downloads the frozen model,
+and then uses the same pinned dependencies as `environment.yml`. It forces only
+the declared Conda channels, so a stale user-level mirror cannot change or break
+the installation. On a standard Conda setup, `conda env create -f environment.yml`
+is equivalent after `git lfs pull`.
 
 ## Classify contigs
 
