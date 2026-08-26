@@ -2,9 +2,10 @@
 
 Tiara2 builds on the original Tiara tool and retains its efficient k-mer/TF-IDF approach to DNA contig classification. Compared with Tiara, it uses a larger, leakage-audited training corpus, hierarchical eukaryotic/prokaryotic/organelle labels, and a multi-objective base model combined with a length-aware BioSignal residual expert. These changes preserve a lightweight architecture and a single automatic-routing interface while improving eukaryotic and fungal recovery, particularly for short contigs.
 
-## Install
+## Install with Conda (recommended)
 
-Install the lightweight runtime from conda-forge, then fetch the frozen model once:
+The recommended installation method is the published conda-forge package. A
+standard Conda installation does not need `--override-channels`:
 
 ```bash
 conda create -n tiara2 -c conda-forge tiara2
@@ -13,11 +14,31 @@ tiara2-download-models
 tiara2-classify --verify
 ```
 
+The Conda package installs the complete Tiara2 runtime. The separate
+`tiara2-download-models` step keeps the package lightweight and downloads the
+frozen model only once.
+
 The model download is approximately 1.2 GB. It is version-pinned, SHA-256 and
 size verified, idempotent when rerun, and stored outside the Conda package in
 the user cache. Set `TIARA2_MODEL_HOME` or pass `--model-dir` to select another
 location. Tiara2 never downloads model files merely because an environment was
 activated.
+
+### Conda channel troubleshooting
+
+Conda also reads channels already present in the user's configuration. If an
+unrelated `defaults` channel or institutional mirror is unavailable, Conda may
+time out before it starts resolving Tiara2. Most users do not need a workaround;
+when this specific channel/network problem occurs, retry with conda-forge only:
+
+```bash
+conda create -n tiara2 --override-channels -c conda-forge tiara2
+```
+
+This option only isolates dependency resolution from unrelated configured
+channels; it does not install a different Tiara2 build.
+
+## Install from source
 
 For a source installation, Git LFS is required:
 
