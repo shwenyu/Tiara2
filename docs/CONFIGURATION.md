@@ -39,6 +39,25 @@ Model-location precedence is `--bundle`, configuration `model_bundle`,
 `TIARA2_MODEL_HOME` to choose a persistent cache location. Explicit runtime CLI
 arguments override the JSON file.
 
+## Optional eukaryote decision threshold
+
+`--euk-threshold FLOAT` is separate from the output-confidence thresholds
+above. It applies a binary eukaryote-versus-rest decision to the full
+`p_eukaryote` root probability. Records below the value fall back to the more
+probable non-eukaryotic root. Omitting the option retains the original argmax
+decision.
+
+The documented general-purpose preset is:
+
+```bash
+tiara2-classify -i contigs.fasta -o predictions.tsv --euk-threshold 0.50
+```
+
+Do not substitute `thresholds.euk = 0.50`: that configuration field gates the
+selected eukaryotic leaf confidence and has a different meaning. Calibration
+is optional and requires representative labels; see the README for the
+two-command workflow and the benchmark evidence behind the preset.
+
 Validate a configuration without inference:
 
 ```bash

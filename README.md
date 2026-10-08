@@ -65,13 +65,25 @@ tiara2-classify --input contigs.fasta --output predictions.tsv
 
 Sequences shorter than 1,000 bp are skipped by default and therefore do not appear in the output.
 
+For a simple eukaryote-versus-rest operating point, Tiara2 provides one
+optional decision parameter:
+
+```bash
+tiara2-classify --input contigs.fasta --output predictions.tsv --euk-threshold 0.50
+```
+
+Omitting `--euk-threshold` preserves the model's original three-root argmax
+decision. The recommended general-purpose value is `0.50`; its benchmark basis
+and limitations are documented below. Labeled validation data are not required
+to run Tiara2.
+
 ## Output format
 
 Tiara2 writes one tab-separated row per accepted FASTA record:
 
 ```text
-record_id  length_bp  expert  root  leaf  root_probability  leaf_probability
-contig_1   1820       base+biosignal  euk_nuclear  fungi  0.91240000  0.86410000
+record_id  length_bp  expert  root  leaf  root_probability  leaf_probability  p_eukaryote  p_prokaryote  p_organelle
+contig_1   1820       base+biosignal  euk_nuclear  fungi  0.91240000  0.86410000  0.91240000  0.06120000  0.02640000
 ```
 
 | Column | Interpretation |
@@ -83,8 +95,50 @@ contig_1   1820       base+biosignal  euk_nuclear  fungi  0.91240000  0.86410000
 | `leaf` | Detailed class within the selected root, such as `fungi`, `bacteria`, `archaea`, `mitochondria`, or `plastid`. Other eukaryotic groups are also reported. |
 | `root_probability` | Probability of the selected root after automatic residual routing. |
 | `leaf_probability` | Probability assigned by the corresponding branch head to the selected leaf. |
+| `p_eukaryote` | Eukaryotic root probability after automatic residual routing. |
+| `p_prokaryote` | Prokaryotic root probability after automatic residual routing. |
+| `p_organelle` | Organelle root probability after automatic residual routing. |
 
-If custom thresholds are configured and a prediction does not pass them, `leaf` is written as `unknown` while the probabilities are retained for downstream filtering. Root and leaf probabilities describe different hierarchy levels and should not be compared as if they were one flat probability distribution; new cohorts should calibrate thresholds on independent validation data.
+If custom thresholds are configured and a prediction does not pass them, `leaf` is written as `unknown` while the probabilities are retained for downstream filtering. Root and leaf probabilities describe different hierarchy levels and should not be compared as if they were one flat probability distribution. Cohort-specific calibration is optional and should be attempted only when representative, reliable labels are available.
+
+## Eukaryote threshold policy
+
+`--euk-threshold 0.50` is the recommended general-purpose operating point for
+the optional eukaryote-versus-rest decision mode. It was chosen for stable
+balanced performance across two leakage-controlled panels, not because 0.50 is
+an intrinsic constant of the model:
+
+| Benchmark panel | Threshold | Precision | Recall | F1 | FPR |
+|---|---:|---:|---:|---:|---:|
+| Pre-2026 leakage-controlled baseline (356,935 records; 19,980 accessions) | 0.500 | 0.9491 | 0.9330 | 0.9410 | 1.13% |
+| Pre-2026 leakage-controlled baseline (356,935 records; 19,980 accessions) | 0.656 | 0.9546 | 0.9279 | 0.9410 | 1.00% |
+| 2026 jointly unseen-lineage SENS (1,204 records; 62 accessions) | 0.500 | 0.9182 | 0.9560 | 0.9367 | 3.69% |
+| 2026 jointly unseen-lineage SENS (1,204 records; 62 accessions) | 0.656 | 0.9194 | 0.9396 | 0.9293 | 3.57% |
+
+Both panels exclude direct training-sequence overlaps and use the same frozen
+Tiara2 model. The different FPR values demonstrate that no single threshold
+guarantees the same false-positive rate in every environment. In particular,
+the baseline-derived threshold 0.656 reached approximately 1% FPR on the large
+baseline but did not reproduce that FPR on the 2026 SENS panel. Relative to
+0.50, it removed 384 baseline false positives while losing 336 true positives;
+on SENS it removed only one false positive while losing six true positives.
+Users working with rare eukaryotic contigs should therefore treat 0.50 as a
+balanced preset, not as a universal low-FPR guarantee.
+
+Threshold calibration is optional. Users who have a representative labeled
+validation set can estimate a cohort-specific maximum-F1 value:
+
+```bash
+tiara2-classify -i validation.fasta -o validation.predictions.tsv
+tiara2-calibrate-euk validation.predictions.tsv validation.truth.tsv
+```
+
+The truth file needs only `record_id` and `truth_class` tab-separated columns.
+The calibration command prints a JSON record containing the recommended value,
+metrics, prevalence, counts and input hashes. Apply the reported value using
+the single `--euk-threshold` option. Calibration must use data independent of
+the final test set. If reliable labels are unavailable, skip calibration and
+use the documented preset or the original argmax mode.
 
 Python usage:
 

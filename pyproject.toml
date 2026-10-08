@@ -23,6 +23,7 @@ dependencies = [
 [project.scripts]
 tiara2-classify = "tiara.cli:main"
 tiara2-download-models = "tiara.cli:download_main"
+tiara2-calibrate-euk = "tiara.calibrate:main"
 
 [tool.setuptools]
 include-package-data = true

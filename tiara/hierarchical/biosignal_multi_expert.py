@@ -113,6 +113,34 @@ def biosignal_features(seq: str) -> np.ndarray:
     return result
 
 
+def apply_eukaryote_threshold(
+    root_probability: np.ndarray,
+    root_classes: list[str],
+    threshold: float | None,
+) -> np.ndarray:
+    """Return root choices, optionally replacing argmax with an euk-vs-rest threshold."""
+    values = np.asarray(root_probability)
+    if values.ndim != 2 or values.shape[1] != len(root_classes):
+        raise ValueError("root_probability shape does not match root_classes")
+    try:
+        euk_index = root_classes.index("euk_nuclear")
+    except ValueError as error:
+        raise ValueError("model root schema does not contain euk_nuclear") from error
+    if threshold is None:
+        return values.argmax(1)
+    threshold = float(threshold)
+    if not 0 <= threshold <= 1:
+        raise ValueError("euk_threshold must be in [0, 1]")
+    non_euk_indices = np.asarray(
+        [index for index in range(len(root_classes)) if index != euk_index],
+        dtype=np.int64,
+    )
+    if not len(non_euk_indices):
+        raise ValueError("model root schema must contain at least one non-eukaryote class")
+    fallback = non_euk_indices[values[:, non_euk_indices].argmax(1)]
+    return np.where(values[:, euk_index] >= threshold, euk_index, fallback)
+
+
 def classify(
     bundle,
     input_fasta,
@@ -123,6 +151,7 @@ def classify(
     max_records=None,
     router_overrides=None,
     threshold_overrides=None,
+    euk_threshold=None,
 ):
     """Classify FASTA records through one stable interface and automatic router."""
     import joblib
@@ -164,6 +193,18 @@ def classify(
     promoted_total = 0
     accepted_total = 0
 
+    root_classes = list(schema.profile.root)
+    try:
+        euk_index = root_classes.index("euk_nuclear")
+        prok_index = root_classes.index("prok")
+        organelle_index = root_classes.index("organelle")
+    except ValueError as error:
+        raise ValueError("model root schema must contain euk_nuclear, prok and organelle") from error
+    if euk_threshold is not None:
+        euk_threshold = float(euk_threshold)
+        if not 0 <= euk_threshold <= 1:
+            raise ValueError("euk_threshold must be in [0, 1]")
+
     def flush(records, writer):
         nonlocal promoted_total
         if not records:
@@ -187,15 +228,17 @@ def classify(
         weights[(lengths >= lower) & (lengths < upper)] = router["middle_weight"]
         weights[lengths >= upper] = router["long_weight"]
         boost = np.minimum(router["alpha"] * weights * evidence, router["delta_max"])
-        eligible = root_probability[:, 0] >= router["base_euk_min"]
+        eligible = root_probability[:, euk_index] >= router["base_euk_min"]
         adjusted_logits = np.log(np.clip(root_probability, 1e-12, 1.0))
-        adjusted_logits[:, 0] += boost * eligible
+        adjusted_logits[:, euk_index] += boost * eligible
         adjusted_root = np.exp(adjusted_logits - adjusted_logits.max(1, keepdims=True))
         adjusted_root /= adjusted_root.sum(1, keepdims=True)
         base_choice = root_probability.argmax(1)
-        adjusted_choice = adjusted_root.argmax(1)
-        promoted = (base_choice != 0) & (adjusted_choice == 0) & eligible
-        promoted_total += int(promoted.sum())
+        router_choice = adjusted_root.argmax(1)
+        promoted = (base_choice != euk_index) & (router_choice == euk_index) & eligible
+        adjusted_choice = apply_eukaryote_threshold(adjusted_root, root_classes, euk_threshold)
+        promoted_effective = promoted & (adjusted_choice == euk_index)
+        promoted_total += int(promoted_effective.sum())
 
         for i, (header, seq) in enumerate(records):
             root_index = int(adjusted_choice[i])
@@ -213,14 +256,38 @@ def classify(
             ):
                 leaf = "unknown"
             writer.writerow(
-                [header, len(seq), "base+biosignal" if promoted[i] else "base", root, leaf, f"{root_p:.8f}", f"{leaf_p:.8f}"]
+                [
+                    header,
+                    len(seq),
+                    "base+biosignal" if promoted_effective[i] else "base",
+                    root,
+                    leaf,
+                    f"{root_p:.8f}",
+                    f"{leaf_p:.8f}",
+                    f"{adjusted_root[i, euk_index]:.8f}",
+                    f"{adjusted_root[i, prok_index]:.8f}",
+                    f"{adjusted_root[i, organelle_index]:.8f}",
+                ]
             )
 
     output_path = Path(output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with output_path.open("w", newline="") as handle:
         writer = csv.writer(handle, delimiter="\t")
-        writer.writerow(["record_id", "length_bp", "expert", "root", "leaf", "root_probability", "leaf_probability"])
+        writer.writerow(
+            [
+                "record_id",
+                "length_bp",
+                "expert",
+                "root",
+                "leaf",
+                "root_probability",
+                "leaf_probability",
+                "p_eukaryote",
+                "p_prokaryote",
+                "p_organelle",
+            ]
+        )
         records = []
         for header, sequence in fasta(Path(input_fasta)):
             if len(sequence) < min_len:
@@ -239,4 +306,5 @@ def classify(
         "accepted_records": accepted_total,
         "promoted_records": promoted_total,
         "device": str(dev),
+        "eukaryote_threshold": euk_threshold,
     }

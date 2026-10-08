@@ -5,7 +5,18 @@ from tiara.bundle import manifest_path, verify_bundle
 from tiara.config import load_config
 
 
-def classify(input_fasta, output, *, config=None, bundle=None, batch=None, device=None, min_length=None, max_records=None):
+def classify(
+    input_fasta,
+    output,
+    *,
+    config=None,
+    bundle=None,
+    batch=None,
+    device=None,
+    min_length=None,
+    max_records=None,
+    euk_threshold=None,
+):
     settings = load_config(config)
     runtime = settings["runtime"]
     chosen_batch = runtime["batch"] if batch is None else batch
@@ -17,6 +28,8 @@ def classify(input_fasta, output, *, config=None, bundle=None, batch=None, devic
         raise ValueError("min_length must be a positive integer")
     if chosen_max_records is not None and (not isinstance(chosen_max_records, int) or chosen_max_records < 1):
         raise ValueError("max_records must be null or a positive integer")
+    if euk_threshold is not None and not 0 <= float(euk_threshold) <= 1:
+        raise ValueError("euk_threshold must be in [0, 1]")
     chosen_bundle = bundle or settings["model_bundle"]
     manifest = manifest_path(chosen_bundle)
     verify_bundle(manifest)
@@ -32,4 +45,5 @@ def classify(input_fasta, output, *, config=None, bundle=None, batch=None, devic
         max_records=chosen_max_records,
         router_overrides=settings["router"],
         threshold_overrides=settings["thresholds"],
+        euk_threshold=euk_threshold,
     )
